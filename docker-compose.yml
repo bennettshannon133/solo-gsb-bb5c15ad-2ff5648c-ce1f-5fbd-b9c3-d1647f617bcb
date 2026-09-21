@@ -1,0 +1,14 @@
+services:
+  factcheck:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - fc-data:/data
+    environment:
+      # 首次启动（数据库为空）写入演示数据；设为 0 可关闭
+      SEED_SAMPLE: "1"
+    restart: unless-stopped
+
+volumes:
+  fc-data:

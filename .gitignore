@@ -1,0 +1,14 @@
+# 数据卷（SQLite 数据库）
+data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# 环境
+.env
+.DS_Store

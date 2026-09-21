@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>采访事实核查工作台</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🔍</span>
+    <div>
+      <h1>采访事实核查工作台</h1>
+      <small>有向证据图 · 冲突路径 · 证据链</small>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <label class="topic-filter">
+      主题筛选
+      <select id="globalTopic"><option value="">全部主题</option></select>
+    </label>
+    <a class="btn ghost" id="exportLink" href="/api/export/markdown" target="_blank">⬇ 导出核查稿</a>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-view="dashboard">📊 核查总览</button>
+  <button class="tab" data-view="assertions">📌 断言</button>
+  <button class="tab" data-view="sources">📄 来源文档</button>
+  <button class="tab" data-view="transcripts">🎙 逐字稿片段</button>
+  <button class="tab" data-view="graph">🕸 证据图</button>
+  <button class="tab" data-view="export">📝 导出</button>
+</nav>
+
+<main id="main"></main>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
