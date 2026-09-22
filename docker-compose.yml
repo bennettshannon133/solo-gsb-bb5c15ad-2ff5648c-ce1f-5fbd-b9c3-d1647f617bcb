@@ -1,0 +1,11 @@
+services:
+  factcheck:
+    build: .
+    container_name: factcheck-workbench
+    ports:
+      - "8000:8000"
+    environment:
+      - FACTCHECK_DB=/app/data/factcheck.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

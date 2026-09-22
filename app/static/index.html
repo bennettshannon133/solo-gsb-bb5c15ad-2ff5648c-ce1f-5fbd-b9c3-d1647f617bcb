@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>采访事实核查工作台</title>
+<style>
+  :root {
+    --primary: #2563eb; --primary-dark: #1d4ed8;
+    --bg: #f1f5f9; --card: #ffffff; --border: #e2e8f0;
+    --text: #0f172a; --muted: #64748b;
+    --pending: #d97706; --pending-bg: #fef3c7;
+    --confirmed: #059669; --confirmed-bg: #d1fae5;
+    --doubtful: #dc2626; --doubtful-bg: #fee2e2;
+    --supports: #16a34a; --refutes: #dc2626; --derives: #2563eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--text); font-size: 14px; }
+  header.topbar { background: #0f172a; color: #fff; padding: 0 20px;
+                  display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .brand { font-size: 17px; font-weight: 700; padding: 14px 0; white-space: nowrap; }
+  nav#tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+  nav#tabs button { background: none; border: none; color: #94a3b8; padding: 14px 14px;
+                    font-size: 14px; cursor: pointer; border-bottom: 3px solid transparent; }
+  nav#tabs button:hover { color: #e2e8f0; }
+  nav#tabs button.active { color: #fff; border-bottom-color: var(--primary); font-weight: 600; }
+  main { max-width: 1180px; margin: 20px auto; padding: 0 16px 60px; }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+  .card h2 { font-size: 15px; margin-bottom: 12px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center;
+               flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .card-head h2 { margin-bottom: 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, select, textarea { font: inherit; padding: 7px 10px; border: 1px solid var(--border);
+                            border-radius: 6px; background: #fff; color: var(--text); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #bfdbfe; border-color: var(--primary); }
+  textarea { width: 100%; min-height: 64px; resize: vertical; margin-bottom: 10px; }
+  button.btn, form button[type=submit] { background: var(--primary); color: #fff; border: none;
+          padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.btn:hover, form button[type=submit]:hover { background: var(--primary-dark); }
+  button.ghost { background: #fff; color: var(--muted); border: 1px solid var(--border);
+                 padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+  button.small { padding: 4px 10px; font-size: 12px; border-radius: 5px; cursor: pointer;
+                 border: 1px solid var(--border); background: #f8fafc; color: var(--text); }
+  button.small:hover { background: #eef2ff; }
+  button.small.danger { color: var(--doubtful); }
+  button.small.danger:hover { background: var(--doubtful-bg); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border);
+           vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  tr:hover td { background: #f8fafc; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px;
+           font-weight: 600; white-space: nowrap; }
+  .badge.pending   { background: var(--pending-bg);   color: var(--pending); }
+  .badge.confirmed { background: var(--confirmed-bg); color: var(--confirmed); }
+  .badge.doubtful  { background: var(--doubtful-bg);  color: var(--doubtful); }
+  .badge.kind { background: #e0e7ff; color: #3730a3; }
+  .rel-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 12px;
+             margin: 1px 2px; white-space: nowrap; }
+  .rel-supports { background: #dcfce7; color: var(--supports); }
+  .rel-refutes  { background: #fee2e2; color: var(--refutes); }
+  .rel-derives  { background: #dbeafe; color: var(--derives); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .hidden { display: none !important; }
+  #toast { position: fixed; top: 16px; right: 16px; z-index: 99; padding: 10px 18px;
+           border-radius: 8px; color: #fff; background: #0f172a; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+           opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 420px; }
+  #toast.show { opacity: 1; }
+  #toast.error { background: var(--doubtful); }
+  .filters select { min-width: 130px; }
+  #graph-canvas { width: 100%; height: 540px; border: 1px solid var(--border); border-radius: 8px;
+                  background: #fbfdff; cursor: grab; display: block; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 12px;
+            color: var(--muted); align-items: center; }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+                 margin-right: 5px; vertical-align: middle; }
+  .legend .line { display: inline-block; width: 22px; height: 3px; border-radius: 2px;
+                  margin-right: 5px; vertical-align: middle; }
+  .analysis-block { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+                    margin-bottom: 12px; }
+  .analysis-block h3 { font-size: 14px; margin-bottom: 8px; }
+  .analysis-block.ok { border-left: 4px solid var(--confirmed); }
+  .analysis-block.warn { border-left: 4px solid var(--pending); }
+  .analysis-block.bad { border-left: 4px solid var(--doubtful); }
+  .analysis-block ul { padding-left: 20px; }
+  .analysis-block li { margin: 5px 0; line-height: 1.55; }
+  .stat-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat { flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid var(--border);
+          border-radius: 8px; padding: 12px 14px; }
+  .stat .num { font-size: 22px; font-weight: 700; }
+  .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  pre.md-preview { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 8px;
+                   overflow: auto; max-height: 560px; font-size: 12.5px; line-height: 1.6;
+                   white-space: pre-wrap; word-break: break-word; }
+  .chip { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 5px;
+          padding: 1px 7px; font-size: 12px; margin: 1px 2px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+               gap: 10px; margin-bottom: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  a { color: var(--primary); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🔍 采访事实核查工作台</div>
+  <nav id="tabs">
+    <button class="tab active" data-tab="claims">断言管理</button>
+    <button class="tab" data-tab="sources">来源库</button>
+    <button class="tab" data-tab="topics">主题</button>
+    <button class="tab" data-tab="graph">证据图</button>
+    <button class="tab" data-tab="analysis">冲突分析</button>
+    <button class="tab" data-tab="export">导出核查稿</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ 断言管理 ============ -->
+  <section id="tab-claims" class="tabpanel active">
+    <div class="card">
+      <h2 id="claim-form-title">新增断言</h2>
+      <form id="claim-form">
+        <textarea id="claim-text" required placeholder="事实断言内容，例如：官方宣称 X9 续航达 22 小时"></textarea>
+        <div class="row">
+          <select id="claim-topic"><option value="">— 选择主题 —</option></select>
+          <select id="claim-source"><option value="">— 关联来源（可选）—</option></select>
+          <input id="claim-notes" placeholder="备注（可选）" style="flex:1;min-width:160px">
+          <button type="submit" class="btn" id="claim-submit">保存断言</button>
+          <button type="button" class="ghost hidden" id="claim-cancel">取消编辑</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>断言列表</h2>
+        <div class="row filters">
+          <select id="filter-topic"><option value="">全部主题</option></select>
+          <select id="filter-status">
+            <option value="">全部状态</option>
+            <option value="pending">待核查</option>
+            <option value="confirmed">已确认</option>
+            <option value="doubtful">存疑</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>ID</th><th>状态</th><th style="min-width:260px">断言</th>
+          <th>主题</th><th>来源</th><th>证据关系</th><th>操作</th>
+        </tr></thead>
+        <tbody id="claims-tbody"></tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>证据关系（支持 / 反驳 / 派生）</h2>
+      <form id="relation-form" class="row" style="margin-bottom:12px">
+        <select id="rel-from" required style="flex:1;min-width:200px"></select>
+        <select id="rel-type">
+          <option value="supports">支持 →</option>
+          <option value="refutes">反驳 ⚡</option>
+          <option value="derives">派生自 ⇢</option>
+        </select>
+        <select id="rel-to" required style="flex:1;min-width:200px"></select>
+        <input id="rel-note" placeholder="关系备注（可选）" style="flex:1;min-width:140px">
+        <button type="submit" class="btn">添加关系</button>
+      </form>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>ID</th><th>从</th><th>关系</th><th>到</th><th>备注</th><th>操作</th></tr></thead>
+        <tbody id="relations-tbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 来源库 ============ -->
+  <section id="tab-sources" class="tabpanel">
+    <div class="card">
+      <h2 id="source-form-title">新增来源（文档 / 逐字稿片段）</h2>
+      <form id="source-form">
+        <div class="form-grid">
+          <input id="source-title" required placeholder="标题，如：发布会逐字稿（节选）">
+          <select id="source-kind">
+            <option value="document">文档</option>
+            <option value="transcript">逐字稿</option>
+          </select>
+          <input id="source-publisher" placeholder="发布方 / 机构（可选）">
+          <input id="source-url" placeholder="链接 URL（可选）">
+          <textarea id="source-excerpt" class="full" placeholder="摘录 / 逐字稿片段（可选）"></textarea>
+        </div>
+        <button type="submit" class="btn" id="source-submit">保存来源</button>
+        <button type="button" class="ghost hidden" id="source-cancel">取消编辑</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>来源列表</h2>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>ID</th><th>类型</th><th>标题</th><th>发布方</th><th>摘录</th><th>操作</th></tr></thead>
+        <tbody id="sources-tbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 主题 ============ -->
+  <section id="tab-topics" class="tabpanel">
+    <div class="card">
+      <h2>新增主题</h2>
+      <form id="topic-form" class="row">
+        <input id="topic-name" required placeholder="主题名称，如：发布会声明核查" style="flex:1;min-width:200px">
+        <input id="topic-desc" placeholder="描述（可选）" style="flex:2;min-width:200px">
+        <button type="submit" class="btn">添加主题</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>主题列表</h2>
+      <table>
+        <thead><tr><th>ID</th><th>名称</th><th>描述</th><th>断言数</th><th>操作</th></tr></thead>
+        <tbody id="topics-tbody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:8px">删除主题不会删除其下断言，断言将变为「未归类」。</p>
+    </div>
+  </section>
+
+  <!-- ============ 证据图 ============ -->
+  <section id="tab-graph" class="tabpanel">
+    <div class="card">
+      <div class="card-head">
+        <h2>有向证据图</h2>
+        <select id="graph-topic"><option value="">全部主题</option></select>
+      </div>
+      <canvas id="graph-canvas"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#f59e0b"></span>待核查</span>
+        <span><span class="dot" style="background:#10b981"></span>已确认</span>
+        <span><span class="dot" style="background:#ef4444"></span>存疑</span>
+        <span><span class="line" style="background:#16a34a"></span>支持</span>
+        <span><span class="line" style="background:#dc2626"></span>反驳</span>
+        <span><span class="line" style="background:#2563eb"></span>派生自</span>
+        <span class="muted">拖拽节点调整布局，点击节点查看详情</span>
+      </div>
+      <div id="graph-node-info" class="muted" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ============ 冲突分析 ============ -->
+  <section id="tab-analysis" class="tabpanel">
+    <div class="card">
+      <div class="card-head">
+        <h2>证据图分析</h2>
+        <div class="row">
+          <select id="analysis-topic"><option value="">全部主题</option></select>
+          <button class="btn" id="run-analysis">运行分析</button>
+        </div>
+      </div>
+      <div id="analysis-result"><p class="muted">选择范围后点击「运行分析」。</p></div>
+    </div>
+  </section>
+
+  <!-- ============ 导出 ============ -->
+  <section id="tab-export" class="tabpanel">
+    <div class="card">
+      <div class="card-head">
+        <h2>导出 Markdown 核查稿</h2>
+        <div class="row">
+          <select id="export-topic"><option value="">全部主题</option></select>
+          <button class="btn" id="preview-export">预览</button>
+          <button class="ghost" id="download-export">下载 .md</button>
+        </div>
+      </div>
+      <pre class="md-preview hidden" id="export-preview"></pre>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $  = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+const STATUS_LABEL = { pending: "待核查", confirmed: "已确认", doubtful: "存疑" };
+const REL_LABEL    = { supports: "支持", refutes: "反驳", derives: "派生自" };
+const KIND_LABEL   = { document: "文档", transcript: "逐字稿" };
+
+const state = { topics: [], sources: [], claims: [], allClaims: [], relations: [],
+                editingClaim: null, editingSource: null };
+
+/* ---------------- 基础工具 ---------------- */
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET" };
+  if (opts.body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(path, init);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail));
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+let toastTimer = null;
+function toast(msg, isErr = false) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.className = "show" + (isErr ? " error" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ""; }, 2600);
+}
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const trunc = (s, n) => (s && s.length > n ? s.slice(0, n) + "…" : (s || ""));
+
+function fillTopicSelect(sel, withAll) {
+  const cur = sel.value;
+  sel.innerHTML = (withAll ? `<option value="">全部主题</option>` : `<option value="">— 选择主题 —</option>`)
+    + state.topics.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  sel.value = cur;
+}
+
+/* ---------------- 数据加载 ---------------- */
+async function loadTopics() {
+  state.topics = await api("/api/topics");
+  renderTopics();
+  fillTopicSelect($("#claim-topic"), false);
+  fillTopicSelect($("#filter-topic"), true);
+  fillTopicSelect($("#graph-topic"), true);
+  fillTopicSelect($("#analysis-topic"), true);
+  fillTopicSelect($("#export-topic"), true);
+}
+async function loadSources() {
+  state.sources = await api("/api/sources");
+  renderSources();
+  const sel = $("#claim-source"), cur = sel.value;
+  sel.innerHTML = `<option value="">— 关联来源（可选）—</option>`
+    + state.sources.map(s => `<option value="${s.id}">[${KIND_LABEL[s.kind]}] ${esc(trunc(s.title, 24))}</option>`).join("");
+  sel.value = cur;
+}
+async function loadClaims() {
+  const params = new URLSearchParams();
+  const t = $("#filter-topic").value, s = $("#filter-status").value;
+  if (t) params.set("topic_id", t);
+  if (s) params.set("status", s);
+  state.claims = await api("/api/claims" + (params.size ? "?" + params : ""));
+  state.allClaims = await api("/api/claims");   // 全量：供关系/图谱/下拉关联
+  renderClaims();
+  fillClaimSelects();
+}
+async function loadRelations() {
+  state.relations = await api("/api/relations");
+  renderRelations();
+  renderClaims();   // 关系摘要随关系变化
+}
+async function refreshAll() {
+  await loadTopics();
+  await loadSources();
+  await loadClaims();
+  state.relations = await api("/api/relations");
+  renderRelations();
+}
+
+/* ---------------- 断言 ---------------- */
+function claimRelations(cid) {
+  const out = [];
+  for (const r of state.relations) {
+    if (r.from_claim_id === cid) out.push(`<span class="rel-tag rel-${r.type}">${REL_LABEL[r.type]} → #${r.to_claim_id}</span>`);
+    if (r.to_claim_id === cid)   out.push(`<span class="rel-tag rel-${r.type}">#${r.from_claim_id} ${REL_LABEL[r.type]}→</span>`);
+  }
+  return out.join("");
+}
+
+function renderClaims() {
+  const tb = $("#claims-tbody");
+  if (!state.claims.length) {
+    tb.innerHTML = `<tr><td colspan="7" class="muted">暂无断言，请在上方录入。</td></tr>`;
+    return;
+  }
+  tb.innerHTML = state.claims.map(c => `
+    <tr>
+      <td>#${c.id}</td>
+      <td>
+        <span class="badge ${c.status}">${STATUS_LABEL[c.status]}</span><br>
+        <select data-status-of="${c.id}" style="margin-top:5px;font-size:12px;padding:3px 5px">
+          ${Object.entries(STATUS_LABEL).map(([v, l]) =>
+            `<option value="${v}" ${v === c.status ? "selected" : ""}>流转为：${l}</option>`).join("")}
+        </select>
+      </td>
+      <td>${esc(c.text)}${c.notes ? `<div class="muted">备注：${esc(c.notes)}</div>` : ""}</td>
+      <td>${c.topic_name ? `<span class="chip">${esc(c.topic_name)}</span>` : '<span class="muted">未归类</span>'}</td>
+      <td>${c.source_title
+            ? `<span class="badge kind">${KIND_LABEL[c.source_kind]}</span> ${esc(trunc(c.source_title, 20))}`
+            : '<span class="muted">⚠ 无来源</span>'}</td>
+      <td>${claimRelations(c.id) || '<span class="muted">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="small" data-edit-claim="${c.id}">编辑</button>
+        <button class="small danger" data-del-claim="${c.id}">删除</button>
+      </td>
+    </tr>`).join("");
+}
+
+function fillClaimSelects() {
+  const opts = state.allClaims.map(c => `<option value="${c.id}">#${c.id} ${esc(trunc(c.text, 30))}</option>`).join("");
+  for (const id of ["#rel-from", "#rel-to"]) {
+    const sel = $(id), cur = sel.value;
+    sel.innerHTML = `<option value="">— 选择断言 —</option>` + opts;
+    sel.value = cur;
+  }
+}
+
+$("#claim-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const body = {
+    text: $("#claim-text").value.trim(),
+    topic_id: $("#claim-topic").value ? Number($("#claim-topic").value) : null,
+    source_id: $("#claim-source").value ? Number($("#claim-source").value) : null,
+    notes: $("#claim-notes").value.trim(),
+  };
+  if (!body.text) return toast("断言内容不能为空", true);
+  try {
+    if (state.editingClaim) {
+      await api(`/api/claims/${state.editingClaim}`, { method: "PUT", body });
+      toast("断言已更新");
+    } else {
+      await api("/api/claims", { method: "POST", body });
+      toast("断言已保存");
+    }
+    resetClaimForm();
+    await loadClaims();
+  } catch (err) { toast(err.message, true); }
+});
+
+function resetClaimForm() {
+  state.editingClaim = null;
+  $("#claim-form").reset();
+  $("#claim-form-title").textContent = "新增断言";
+  $("#claim-submit").textContent = "保存断言";
+  $("#claim-cancel").classList.add("hidden");
+}
+$("#claim-cancel").addEventListener("click", resetClaimForm);
+
+$("#claims-tbody").addEventListener("click", async e => {
+  const editId = e.target.dataset.editClaim, delId = e.target.dataset.delClaim;
+  if (editId) {
+    const c = state.claims.find(x => x.id === Number(editId));
+    if (!c) return;
+    state.editingClaim = c.id;
+    $("#claim-text").value = c.text;
+    $("#claim-topic").value = c.topic_id ?? "";
+    $("#claim-source").value = c.source_id ?? "";
+    $("#claim-notes").value = c.notes || "";
+    $("#claim-form-title").textContent = `编辑断言 #${c.id}`;
+    $("#claim-submit").textContent = "保存修改";
+    $("#claim-cancel").classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else if (delId) {
+    if (!confirm(`确认删除断言 #${delId}？其证据关系将一并删除。`)) return;
+    try {
+      await api(`/api/claims/${delId}`, { method: "DELETE" });
+      toast("断言已删除");
+      await loadClaims();
+      state.relations = await api("/api/relations");
+      renderRelations();
+    } catch (err) { toast(err.message, true); }
+  }
+});
+
+$("#claims-tbody").addEventListener("change", async e => {
+  const cid = e.target.dataset.statusOf;
+  if (!cid) return;
+  try {
+    await api(`/api/claims/${cid}/status`, { method: "PATCH", body: { status: e.target.value } });
+    toast(`断言 #${cid} 已流转为「${STATUS_LABEL[e.target.value]}」`);
+    await loadClaims();
+  } catch (err) { toast(err.message, true); }
+});
+
+$("#filter-topic").addEventListener("change", loadClaims);
+$("#filter-status").addEventListener("change", loadClaims);
+
+/* ---------------- 关系 ---------------- */
+function renderRelations() {
+  const tb = $("#relations-tbody");
+  if (!state.relations.length) {
+    tb.innerHTML = `<tr><td colspan="6" class="muted">暂无关系。</td></tr>`;
+    return;
+  }
+  const text = id => { const c = state.allClaims.find(x => x.id === id); return c ? trunc(c.text, 22) : "（已删除）"; };
+  tb.innerHTML = state.relations.map(r => `
+    <tr>
+      <td>#${r.id}</td>
+      <td>#${r.from_claim_id} ${esc(text(r.from_claim_id))}</td>
+      <td><span class="rel-tag rel-${r.type}">${REL_LABEL[r.type]}</span></td>
+      <td>#${r.to_claim_id} ${esc(text(r.to_claim_id))}</td>
+      <td class="muted">${esc(r.note || "")}</td>
+      <td><button class="small danger" data-del-rel="${r.id}">删除</button></td>
+    </tr>`).join("");
+}
+
+$("#relation-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const from = $("#rel-from").value, to = $("#rel-to").value;
+  if (!from || !to) return toast("请选择两端断言", true);
+  try {
+    await api("/api/relations", { method: "POST", body: {
+      from_claim_id: Number(from), to_claim_id: Number(to),
+      type: $("#rel-type").value, note: $("#rel-note").value.trim(),
+    }});
+    toast("关系已添加");
+    $("#rel-note").value = "";
+    state.relations = await api("/api/relations");
+    renderRelations();
+  } catch (err) { toast(err.message, true); }
+});
+
+$("#relations-tbody").addEventListener("click", async e => {
+  const id = e.target.dataset.delRel;
+  if (!id) return;
+  try {
+    await api(`/api/relations/${id}`, { method: "DELETE" });
+    toast("关系已删除");
+    state.relations = await api("/api/relations");
+    renderRelations();
+  } catch (err) { toast(err.message, true); }
+});
+
+/* ---------------- 来源 ---------------- */
+function renderSources() {
+  const tb = $("#sources-tbody");
+  if (!state.sources.length) {
+    tb.innerHTML = `<tr><td colspan="6" class="muted">暂无来源。</td></tr>`;
+    return;
+  }
+  tb.innerHTML = state.sources.map(s => `
+    <tr>
+      <td>#${s.id}</td>
+      <td><span class="badge kind">${KIND_LABEL[s.kind]}</span></td>
+      <td>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>` : esc(s.title)}</td>
+      <td>${esc(s.publisher || "")}</td>
+      <td class="muted">${esc(trunc(s.excerpt, 60))}</td>
+      <td style="white-space:nowrap">
+        <button class="small" data-edit-source="${s.id}">编辑</button>
+        <button class="small danger" data-del-source="${s.id}">删除</button>
+      </td>
+    </tr>`).join("");
+}
+
+$("#source-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const body = {
+    title: $("#source-title").value.trim(),
+    kind: $("#source-kind").value,
+    publisher: $("#source-publisher").value.trim(),
+    url: $("#source-url").value.trim(),
+    excerpt: $("#source-excerpt").value.trim(),
+  };
+  if (!body.title) return toast("来源标题不能为空", true);
+  try {
+    if (state.editingSource) {
+      await api(`/api/sources/${state.editingSource}`, { method: "PUT", body });
+      toast("来源已更新");
+    } else {
+      await api("/api/sources", { method: "POST", body });
+      toast("来源已保存");
+    }
+    resetSourceForm();
+    await loadSources();
+    await loadClaims();
+  } catch (err) { toast(err.message, true); }
+});
+
+function resetSourceForm() {
+  state.editingSource = null;
+  $("#source-form").reset();
+  $("#source-form-title").textContent = "新增来源（文档 / 逐字稿片段）";
+  $("#source-submit").textContent = "保存来源";
+  $("#source-cancel").classList.add("hidden");
+}
+$("#source-cancel").addEventListener("click", resetSourceForm);
+
+$("#sources-tbody").addEventListener("click", async e => {
+  const editId = e.target.dataset.editSource, delId = e.target.dataset.delSource;
+  if (editId) {
+    const s = state.sources.find(x => x.id === Number(editId));
+    if (!s) return;
+    state.editingSource = s.id;
+    $("#source-title").value = s.title;
+    $("#source-kind").value = s.kind;
+    $("#source-publisher").value = s.publisher;
+    $("#source-url").value = s.url;
+    $("#source-excerpt").value = s.excerpt;
+    $("#source-form-title").textContent = `编辑来源 #${s.id}`;
+    $("#source-submit").textContent = "保存修改";
+    $("#source-cancel").classList.remove("hidden");
+  } else if (delId) {
+    if (!confirm(`确认删除来源 #${delId}？关联断言的来源将置空。`)) return;
+    try {
+      await api(`/api/sources/${delId}`, { method: "DELETE" });
+      toast("来源已删除");
+      await loadSources();
+      await loadClaims();
+    } catch (err) { toast(err.message, true); }
+  }
+});
+
+/* ---------------- 主题 ---------------- */
+function renderTopics() {
+  const tb = $("#topics-tbody");
+  if (!state.topics.length) {
+    tb.innerHTML = `<tr><td colspan="5" class="muted">暂无主题。</td></tr>`;
+    return;
+  }
+  tb.innerHTML = state.topics.map(t => `
+    <tr>
+      <td>#${t.id}</td>
+      <td><strong>${esc(t.name)}</strong></td>
+      <td class="muted">${esc(t.description || "")}</td>
+      <td>${t.claim_count}</td>
+      <td><button class="small danger" data-del-topic="${t.id}">删除</button></td>
+    </tr>`).join("");
+}
+
+$("#topic-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    await api("/api/topics", { method: "POST", body: {
+      name: $("#topic-name").value.trim(), description: $("#topic-desc").value.trim(),
+    }});
+    toast("主题已添加");
+    $("#topic-form").reset();
+    await loadTopics();
+  } catch (err) { toast(err.message, true); }
+});
+
+$("#topics-tbody").addEventListener("click", async e => {
+  const id = e.target.dataset.delTopic;
+  if (!id || !confirm(`确认删除主题 #${id}？其下断言将变为未归类。`)) return;
+  try {
+    await api(`/api/topics/${id}`, { method: "DELETE" });
+    toast("主题已删除");
+    await loadTopics();
+    await loadClaims();
+  } catch (err) { toast(err.message, true); }
+});
+
+/* ---------------- 证据图（力导向画布） ---------------- */
+const graph = { nodes: [], edges: [], raf: null, drag: null, selected: null };
+
+function graphData() {
+  const tid = $("#graph-topic").value;
+  const claims = tid ? state.allClaims.filter(c => String(c.topic_id) === tid) : state.allClaims;
+  const ids = new Set(claims.map(c => c.id));
+  const edges = state.relations.filter(r => ids.has(r.from_claim_id) && ids.has(r.to_claim_id));
+  return { claims, edges };
+}
+
+function initGraph() {
+  const canvas = $("#graph-canvas");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const { claims, edges } = graphData();
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  graph.nodes = claims.map((c, i) => ({
+    ...c,
+    x: cx + Math.cos(i * 2.399) * (80 + i * 22) * dpr * 0.6,
+    y: cy + Math.sin(i * 2.399) * (80 + i * 22) * dpr * 0.6,
+    vx: 0, vy: 0,
+  }));
+  graph.edges = edges;
+  graph.selected = null;
+  $("#graph-node-info").textContent = "";
+  cancelAnimationFrame(graph.raf);
+  tickGraph();
+}
+
+const NODE_R = 24;
+function tickGraph() {
+  const canvas = $("#graph-canvas");
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width, H = canvas.height;
+  const nodes = graph.nodes, edges = graph.edges;
+  const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  // 物理模拟
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      let dx = a.x - b.x, dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy || 1;
+      const f = Math.min(9000 * dpr * dpr / d2, 8);
+      const d = Math.sqrt(d2);
+      dx /= d; dy /= d;
+      a.vx += dx * f; a.vy += dy * f;
+      b.vx -= dx * f; b.vy -= dy * f;
+    }
+  }
+  for (const e of edges) {
+    const a = byId[e.from_claim_id], b = byId[e.to_claim_id];
+    if (!a || !b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const f = (d - 170 * dpr) * 0.015;
+    a.vx += dx / d * f; a.vy += dy / d * f;
+    b.vx -= dx / d * f; b.vy -= dy / d * f;
+  }
+  for (const n of nodes) {
+    n.vx += (W / 2 - n.x) * 0.002;
+    n.vy += (H / 2 - n.y) * 0.002;
+    if (graph.drag !== n) { n.x += n.vx; n.y += n.vy; }
+    n.vx *= 0.82; n.vy *= 0.82;
+    n.x = Math.max(NODE_R * dpr, Math.min(W - NODE_R * dpr, n.x));
+    n.y = Math.max(NODE_R * dpr, Math.min(H - NODE_R * dpr, n.y));
+  }
+
+  // 绘制
+  ctx.clearRect(0, 0, W, H);
+  const REL_COLOR = { supports: "#16a34a", refutes: "#dc2626", derives: "#2563eb" };
+  const pairCount = {};
+  for (const e of edges) {
+    const a = byId[e.from_claim_id], b = byId[e.to_claim_id];
+    if (!a || !b) continue;
+    const key = [Math.min(e.from_claim_id, e.to_claim_id), Math.max(e.from_claim_id, e.to_claim_id)].join("-");
+    const idx = (pairCount[key] = (pairCount[key] || 0) + 1) - 1;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const nx = -dy / d, ny = dx / d;
+    const off = idx * 14 * dpr;
+    const sx = a.x + dx / d * NODE_R * dpr + nx * off, sy = a.y + dy / d * NODE_R * dpr + ny * off;
+    const tx = b.x - dx / d * (NODE_R + 6) * dpr + nx * off, ty = b.y - dy / d * (NODE_R + 6) * dpr + ny * off;
+    ctx.strokeStyle = REL_COLOR[e.type];
+    ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+    // 箭头
+    const ang = Math.atan2(ty - sy, tx - sx);
+    const ah = 9 * dpr;
+    ctx.fillStyle = REL_COLOR[e.type];
+    ctx.beginPath();
+    ctx.moveTo(tx + Math.cos(ang) * ah, ty + Math.sin(ang) * ah);
+    ctx.lineTo(tx + Math.cos(ang + 2.5) * ah, ty + Math.sin(ang + 2.5) * ah);
+    ctx.lineTo(tx + Math.cos(ang - 2.5) * ah, ty + Math.sin(ang - 2.5) * ah);
+    ctx.closePath(); ctx.fill();
+  }
+  const STATUS_COLOR = { pending: "#f59e0b", confirmed: "#10b981", doubtful: "#ef4444" };
+  for (const n of nodes) {
+    const r = NODE_R * dpr;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = STATUS_COLOR[n.status] || "#94a3b8";
+    ctx.fill();
+    ctx.lineWidth = (graph.selected === n ? 4 : 2) * dpr;
+    ctx.strokeStyle = graph.selected === n ? "#0f172a" : "rgba(15,23,42,.25)";
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${12 * dpr}px sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("#" + n.id, n.x, n.y);
+    ctx.fillStyle = "#334155";
+    ctx.font = `${11 * dpr}px sans-serif`;
+    ctx.fillText(trunc(n.text, 10), n.x, n.y + r + 12 * dpr);
+  }
+  graph.raf = requestAnimationFrame(tickGraph);
+}
+
+function canvasPos(evt) {
+  const canvas = $("#graph-canvas");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  return { x: (evt.clientX - rect.left) * dpr, y: (evt.clientY - rect.top) * dpr };
+}
+function hitNode(pos) {
+  const dpr = window.devicePixelRatio || 1;
+  return graph.nodes.find(n => Math.hypot(n.x - pos.x, n.y - pos.y) <= NODE_R * dpr + 4);
+}
+
+$("#graph-canvas").addEventListener("mousedown", e => {
+  const n = hitNode(canvasPos(e));
+  if (n) { graph.drag = n; n.moved = false; }
+});
+window.addEventListener("mousemove", e => {
+  if (!graph.drag) return;
+  const p = canvasPos(e);
+  graph.drag.x = p.x; graph.drag.y = p.y;
+  graph.drag.vx = graph.drag.vy = 0;
+  graph.drag.moved = true;
+});
+window.addEventListener("mouseup", e => {
+  if (graph.drag && !graph.drag.moved) {
+    graph.selected = graph.drag;
+    const c = graph.drag;
+    const rels = claimRelations(c.id);
+    $("#graph-node-info").innerHTML =
+      `<strong>#${c.id}</strong> ${esc(c.text)}　<span class="badge ${c.status}">${STATUS_LABEL[c.status]}</span>` +
+      `<br>主题：${esc(c.topic_name || "未归类")}　来源：${esc(c.source_title || "⚠ 无来源")}` +
+      (rels ? `<br>${rels}` : "");
+  }
+  graph.drag = null;
+});
+$("#graph-topic").addEventListener("change", initGraph);
+
+/* ---------------- 分析 ---------------- */
+async function runAnalysis() {
+  const tid = $("#analysis-topic").value;
+  const box = $("#analysis-result");
+  box.innerHTML = `<p class="muted">分析中…</p>`;
+  try {
+    const r = await api("/api/analysis" + (tid ? `?topic_id=${tid}` : ""));
+    const block = (cls, title, items, okText) => items.length
+      ? `<div class="analysis-block ${cls}"><h3>${title}（${items.length}）</h3><ul>${items.join("")}</ul></div>`
+      : `<div class="analysis-block ok"><h3>${title}</h3><p class="muted">${okText}</p></div>`;
+
+    box.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat"><div class="num">${r.counts.claims}</div><div class="lbl">断言总数</div></div>
+        <div class="stat"><div class="num">${r.counts.relations}</div><div class="lbl">证据关系</div></div>
+        <div class="stat"><div class="num" style="color:var(--confirmed)">${r.counts.status_confirmed}</div><div class="lbl">已确认</div></div>
+        <div class="stat"><div class="num" style="color:var(--pending)">${r.counts.status_pending}</div><div class="lbl">待核查</div></div>
+        <div class="stat"><div class="num" style="color:var(--doubtful)">${r.counts.status_doubtful}</div><div class="lbl">存疑</div></div>
+      </div>
+      ${block("bad", "⚠ 循环引用", r.cycles.map(c =>
+        `<li>${esc(c.description)}<br>${c.claims.map(x => `<span class="chip">#${x.id} ${esc(trunc(x.text, 18))}</span>`).join(" ")}</li>`),
+        "未发现循环引用。")}
+      ${block("warn", "⚠ 无来源断言（无直接来源且派生链无法溯源）", r.ungrounded.map(u =>
+        `<li>[#${u.id}] ${esc(u.text)} <span class="badge ${u.status}">${u.status_label}</span></li>`),
+        "所有断言均可溯源至来源。")}
+      ${block("bad", "⚠ 确认间冲突（互斥结论均被证实）", r.conflicts.map(c =>
+        `<li>${esc(c.description)}<br>
+           <span class="chip">#${c.refuter.id} ${esc(trunc(c.refuter.text, 18))}</span> ⚡
+           <span class="chip">#${c.refuted.id} ${esc(trunc(c.refuted.text, 18))}</span>
+           ${c.note ? `<div class="muted">关系备注：${esc(c.note)}</div>` : ""}</li>`),
+        "未发现已确认断言之间的冲突。")}
+      ${block("warn", "潜在冲突（存在反驳边，尚未双方证实）", r.potential_conflicts.map(p =>
+        `<li>[#${p.refuter.id}] ${esc(trunc(p.refuter.text, 26))} <strong>反驳</strong>
+           [#${p.refuted.id}] ${esc(trunc(p.refuted.text, 26))}<br>
+           <span class="muted">${esc(p.reason)}</span></li>`),
+        "暂无潜在冲突。")}
+      <div class="analysis-block"><h3>提示</h3><p class="muted">
+        另有 ${r.no_direct_source.length} 条断言未直接关联来源（其中 ${r.ungrounded.length} 条完全无法溯源）。
+        「支持」关系会传播确认状态，「派生自」关系用于溯源。
+      </p></div>`;
+  } catch (err) {
+    box.innerHTML = `<p class="muted">分析失败：${esc(err.message)}</p>`;
+  }
+}
+$("#run-analysis").addEventListener("click", runAnalysis);
+
+/* ---------------- 导出 ---------------- */
+function exportUrl() {
+  const tid = $("#export-topic").value;
+  return "/api/export/markdown" + (tid ? `?topic_id=${tid}` : "");
+}
+$("#preview-export").addEventListener("click", async () => {
+  const pre = $("#export-preview");
+  try {
+    const res = await fetch(exportUrl());
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    pre.textContent = await res.text();
+    pre.classList.remove("hidden");
+  } catch (err) { toast(err.message, true); }
+});
+$("#download-export").addEventListener("click", () => { window.location.href = exportUrl(); });
+
+/* ---------------- 标签页 ---------------- */
+$$("#tabs .tab").forEach(btn => btn.addEventListener("click", async () => {
+  $$("#tabs .tab").forEach(b => b.classList.toggle("active", b === btn));
+  $$(".tabpanel").forEach(p => p.classList.remove("active"));
+  $("#tab-" + btn.dataset.tab).classList.add("active");
+  if (btn.dataset.tab === "graph") {
+    state.relations = await api("/api/relations");
+    initGraph();
+  } else {
+    cancelAnimationFrame(graph.raf);
+  }
+  if (btn.dataset.tab === "analysis") runAnalysis();
+}));
+
+/* ---------------- 启动 ---------------- */
+(async () => {
+  try {
+    await refreshAll();
+  } catch (err) {
+    toast("初始化失败：" + err.message, true);
+  }
+})();
+</script>
+</body>
+</html>
